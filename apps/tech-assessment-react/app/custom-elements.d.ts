@@ -1,6 +1,6 @@
 import type { HTMLAttributes } from 'react';
 
-declare global {
+declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
       'atp-header': HTMLAttributes<HTMLElement>;
