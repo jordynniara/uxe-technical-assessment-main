@@ -11,6 +11,12 @@ declare module 'react' {
       'atp-header': CustomElementProps<HTMLElementTagNameMap['atp-header']>;
       'atp-sidebar': CustomElementProps<HTMLElementTagNameMap['atp-sidebar']>;
       'atp-breadcrumbs': CustomElementProps<HTMLElementTagNameMap['atp-breadcrumbs']>;
+      'atp-input': CustomElementProps<HTMLElementTagNameMap['atp-input']>;
+      'atp-dropdown': CustomElementProps<HTMLElementTagNameMap['atp-dropdown']>;
+      'atp-checkbox': CustomElementProps<
+        HTMLElementTagNameMap['atp-checkbox'],
+        { label?: string; name?: string; value?: string }
+      >;
       'atp-card': CustomElementProps<HTMLElement>;
       'atp-card-header': CustomElementProps<HTMLElement>;
       'atp-card-footer': CustomElementProps<HTMLElement>;

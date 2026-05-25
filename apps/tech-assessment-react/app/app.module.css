@@ -1,1 +1,19 @@
 /* Your styles goes here. */
+.deliveryConfigForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--atp-space-s);
+  margin-top: var(--atp-space-m);
+  padding: var(--atp-space-m);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--atp-space-s);
+}
+
+.deliveryLocationDetailsCard {
+  margin-left: var(--atp-space-s);
+}
+

@@ -50,3 +50,6 @@ test-output
 
 __screenshots__/
 
+
+# Extracted Lift design system docs (reference only, not source)
+vendor/atp-web-docs/extracted/
