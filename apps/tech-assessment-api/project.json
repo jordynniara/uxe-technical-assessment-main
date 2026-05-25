@@ -1,0 +1,16 @@
+{
+  "name": "tech-assessment-api",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/tech-assessment-api",
+  "targets": {
+    "serve": {
+      "continuous": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node apps/tech-assessment-api/server.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

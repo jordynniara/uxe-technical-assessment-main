@@ -1,0 +1,29 @@
+{
+  "name": "tech-assessment-react",
+  "projectType": "application",
+  "root": "apps/tech-assessment-react",
+  "sourceRoot": "apps/tech-assessment-react/app",
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "nx serve tech-assessment-react"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{workspaceRoot}/dist/tech-assessment-react"],
+      "options": {
+        "command": "npx react-router build",
+        "cwd": "apps/tech-assessment-react"
+      }
+    },
+    "stylelint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "stylelint \"apps/tech-assessment-react/**/*.css\" --config stylelint.config.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

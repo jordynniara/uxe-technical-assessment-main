@@ -1,0 +1,10 @@
+/* You can add global styles to this file, and also import other style files */
+.welcome-title {
+  margin-block: var(--atp-space-m);
+}
+
+footer nav {
+  margin-block-start: var(--atp-space-m);
+  display: flex;
+  gap: var(--atp-space-m);
+}

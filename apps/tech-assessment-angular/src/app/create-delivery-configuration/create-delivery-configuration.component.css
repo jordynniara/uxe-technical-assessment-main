@@ -1,0 +1,11 @@
+:host {
+  display: block;
+}
+
+.page-content {
+  padding: var(--atp-space-l);
+}
+
+.view-title {
+  margin: var(--atp-space-s) 0 0;
+}

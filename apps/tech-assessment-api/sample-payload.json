@@ -1,0 +1,17 @@
+{
+  "deliveryName": "Daily Sales Export",
+  "customer": "Acme Travel",
+  "deliveryFrequency": "Daily",
+  "last_file_suffix": "_20260214",
+  "deliveryLocation": "email",
+  "subject": "Delivery Complete",
+  "body": "Your delivery is complete.",
+  "recipients": "ops@example.com",
+  "deliveryFileName": "sales-export",
+  "combineFiles": true,
+  "maximumFileSize": 5,
+  "compression": true,
+  "specificDirectory": true,
+  "virusScan": true,
+  "encrypt": true
+}

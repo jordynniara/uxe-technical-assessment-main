@@ -1,0 +1,19 @@
+<div class="atp-layout">
+  <atp-header id="header" class="layout-header" label="PriceEye" org="ATPCO"></atp-header>
+
+  <atp-sidebar
+    id="sidebar"
+    class="layout-sidebar"
+    [items]="sidebarItems"
+    [activeId]="activeSidebarId"
+    [outputNavigationEvents]="true"
+    (navigationEventOutput)="onSidebarNavigation($event)"
+  ></atp-sidebar>
+
+  <div class="scroll-wrapper">
+    <div class="page-content">
+      <atp-breadcrumbs [itemsList]="breadcrumbItems"></atp-breadcrumbs>
+      <h1 class="view-title">Create delivery configuration</h1>
+    </div>
+  </div>
+</div>

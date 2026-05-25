@@ -1,0 +1,6 @@
+/* Intentionally empty: styles live in global styles.css for parity with React starter. */
+.card-content{
+  display: flex;
+  align-items: center;
+  gap: var(--atp-space-xs);
+}

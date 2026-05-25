@@ -1,0 +1,93 @@
+{
+  "name": "tech-assessment-angular",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/tech-assessment-angular/src",
+  "tags": [],
+  "targets": {
+    "build": {
+      "executor": "@angular/build:application",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/tech-assessment-angular",
+        "browser": "apps/tech-assessment-angular/src/main.ts",
+        "tsConfig": "apps/tech-assessment-angular/tsconfig.app.json",
+        "assets": [
+          {
+            "glob": "**/*",
+            "input": "apps/tech-assessment-angular/public"
+          }
+        ],
+        "styles": [
+          "@atpco/atp-web/global.css",
+          "@atpco/atp-web/normalize.css",
+          "apps/tech-assessment-angular/src/styles.css"
+        ]
+      },
+      "configurations": {
+        "production": {
+          "budgets": [
+            {
+              "type": "initial",
+              "maximumWarning": "500kb",
+              "maximumError": "1mb"
+            },
+            {
+              "type": "anyComponentStyle",
+              "maximumWarning": "4kb",
+              "maximumError": "8kb"
+            }
+          ],
+          "outputHashing": "all"
+        },
+        "development": {
+          "optimization": false,
+          "extractLicenses": false,
+          "sourceMap": true
+        }
+      },
+      "defaultConfiguration": "production"
+    },
+    "serve": {
+      "continuous": true,
+      "executor": "@angular/build:dev-server",
+      "options": {
+        "proxyConfig": "apps/tech-assessment-angular/proxy.conf.json"
+      },
+      "configurations": {
+        "production": {
+          "buildTarget": "tech-assessment-angular:build:production"
+        },
+        "development": {
+          "buildTarget": "tech-assessment-angular:build:development"
+        }
+      },
+      "defaultConfiguration": "development"
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "stylelint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "stylelint \"apps/tech-assessment-angular/**/*.css\" --config stylelint.config.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {}
+    },
+    "serve-static": {
+      "continuous": true,
+      "executor": "@nx/web:file-server",
+      "options": {
+        "buildTarget": "tech-assessment-angular:build",
+        "port": 4200,
+        "staticFilePath": "dist/tech-assessment-angular/browser",
+        "spa": true
+      }
+    }
+  }
+}
