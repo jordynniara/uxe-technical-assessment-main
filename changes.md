@@ -49,3 +49,37 @@ This merges the custom element entries into React's actual `IntrinsicElements` i
 -      <Welcome title="Tech-assessment-react" />
 +      <Welcome />
 ```
+
+## Refactors
+
+### 3. Replaced `getElementById` with `useRef` in `DeliveryConfigurationCreateRoute`
+
+**Files:**
+- [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx)
+- [apps/tech-assessment-react/app/custom-elements.d.ts](apps/tech-assessment-react/app/custom-elements.d.ts)
+
+The starter used `document.getElementById('delivery-config-sidebar')` inside `useEffect` to access the Lift web components and set their object/array properties (`items`, `activeId`, etc.). That pattern has several problems:
+
+- Searches the global `document` — easy to collide with another component's ids
+- Requires inventing and maintaining unique ids across the app
+- Wouldn't survive SSR if the lookup ever moved outside `useEffect` (`document` is undefined on the server)
+- Doesn't scale to multiple instances of the same component
+- Repeats the `as HTMLElementTagNameMap['atp-*'] | null` cast at every call site
+
+**Fix:** switched to `useRef`, the React-native way to imperatively reach a DOM node. Each custom element gets a typed ref declared once; effects read `ref.current` directly:
+
+```tsx
+const sidebarRef = useRef<HTMLElementTagNameMap['atp-sidebar']>(null);
+
+useEffect(() => {
+  if (sidebarRef.current) {
+    sidebarRef.current.items = SIDEBAR_ITEMS;
+  }
+}, []);
+
+return <atp-sidebar ref={sidebarRef} />;
+```
+
+To make `ref` valid on the custom elements, [custom-elements.d.ts](apps/tech-assessment-react/app/custom-elements.d.ts) was updated to declare them with `DetailedHTMLProps<HTMLAttributes<T>, T>` instead of bare `HTMLAttributes<HTMLElement>`. The bare form omits the `ref` attribute, which is added by `DetailedHTMLProps`. The element types now use the actual class types from `HTMLElementTagNameMap` (e.g. `Sidebar`, `Header`, `Breadcrumbs`) provided by `@atpco/atp-web`, giving stronger typing on `ref.current`.
+
+The `id` attributes on `<atp-header>`, `<atp-sidebar>`, and `<atp-breadcrumbs>` were removed since they were only there to support the old lookup.

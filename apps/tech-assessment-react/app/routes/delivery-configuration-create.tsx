@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BreadcrumbItem, SidebarItem } from '@atpco/atp-web';
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
@@ -36,35 +36,28 @@ const BREADCRUMB_ITEMS: BreadcrumbItem[] = [
 export default function DeliveryConfigurationCreateRoute() {
   const [activeSidebarId, setActiveSidebarId] = useState('delivery-configuration');
 
+  const headerRef = useRef<HTMLElementTagNameMap['atp-header']>(null);
+  const sidebarRef = useRef<HTMLElementTagNameMap['atp-sidebar']>(null);
+  const breadcrumbsRef = useRef<HTMLElementTagNameMap['atp-breadcrumbs']>(null);
+
   useEffect(() => {
-    const header = document.getElementById('delivery-config-header') as HTMLElementTagNameMap['atp-header'] | null;
-    const sidebar = document.getElementById(
-      'delivery-config-sidebar',
-    ) as HTMLElementTagNameMap['atp-sidebar'] | null;
-    const breadcrumbs = document.getElementById(
-      'delivery-config-breadcrumbs',
-    ) as HTMLElementTagNameMap['atp-breadcrumbs'] | null;
-
-    if (header) {
-      header.label = 'PriceEye';
-      header.org = 'ATPCO';
+    if (headerRef.current) {
+      headerRef.current.label = 'PriceEye';
+      headerRef.current.org = 'ATPCO';
     }
 
-    if (sidebar) {
-      sidebar.items = SIDEBAR_ITEMS;
-      sidebar.outputNavigationEvents = true;
+    if (sidebarRef.current) {
+      sidebarRef.current.items = SIDEBAR_ITEMS;
+      sidebarRef.current.outputNavigationEvents = true;
     }
 
-    if (breadcrumbs) {
-      breadcrumbs.itemsList = BREADCRUMB_ITEMS;
+    if (breadcrumbsRef.current) {
+      breadcrumbsRef.current.itemsList = BREADCRUMB_ITEMS;
     }
   }, []);
 
   useEffect(() => {
-    const sidebar = document.getElementById(
-      'delivery-config-sidebar',
-    ) as HTMLElementTagNameMap['atp-sidebar'] | null;
-
+    const sidebar = sidebarRef.current;
     if (!sidebar) {
       return;
     }
@@ -87,13 +80,13 @@ export default function DeliveryConfigurationCreateRoute() {
 
   return (
     <div className="atp-layout">
-      <atp-header id="delivery-config-header" className="layout-header"></atp-header>
+      <atp-header ref={headerRef} className="layout-header"></atp-header>
 
-      <atp-sidebar id="delivery-config-sidebar" className="layout-sidebar"></atp-sidebar>
+      <atp-sidebar ref={sidebarRef} className="layout-sidebar"></atp-sidebar>
 
       <div className="scroll-wrapper">
         <div className="page-content">
-          <atp-breadcrumbs id="delivery-config-breadcrumbs"></atp-breadcrumbs>
+          <atp-breadcrumbs ref={breadcrumbsRef}></atp-breadcrumbs>
           <h1 className="view-title">Create delivery configuration</h1>
         </div>
       </div>

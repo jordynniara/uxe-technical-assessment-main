@@ -1,17 +1,20 @@
-import type { HTMLAttributes } from 'react';
+import type { DetailedHTMLProps, HTMLAttributes } from 'react';
+
+type CustomElementProps<T extends HTMLElement, P = {}> = DetailedHTMLProps<
+  HTMLAttributes<T> & P,
+  T
+>;
 
 declare module 'react' {
   namespace JSX {
     interface IntrinsicElements {
-      'atp-header': HTMLAttributes<HTMLElement>;
-      'atp-sidebar': HTMLAttributes<HTMLElement>;
-      'atp-breadcrumbs': HTMLAttributes<HTMLElement>;
-      'atp-card': HTMLAttributes<HTMLElement>;
-      'atp-card-header': HTMLAttributes<HTMLElement>;
-      'atp-card-footer': HTMLAttributes<HTMLElement>;
-      'atp-button': HTMLAttributes<HTMLElement> & {
-        label?: string;
-      };
+      'atp-header': CustomElementProps<HTMLElementTagNameMap['atp-header']>;
+      'atp-sidebar': CustomElementProps<HTMLElementTagNameMap['atp-sidebar']>;
+      'atp-breadcrumbs': CustomElementProps<HTMLElementTagNameMap['atp-breadcrumbs']>;
+      'atp-card': CustomElementProps<HTMLElement>;
+      'atp-card-header': CustomElementProps<HTMLElement>;
+      'atp-card-footer': CustomElementProps<HTMLElement>;
+      'atp-button': CustomElementProps<HTMLElement, { label?: string }>;
     }
   }
 }
