@@ -1,43 +1,72 @@
-# UXE Technical Assessment
+# UXE Technical Assessment — React Solution
 
-This is an ATPCO UXE technical assessment. ATPCO has its own design system, the Lift Design System, which is utilized in many of its products. This assessment is meant to familiarize you with the system, in addition to allowing you to showcase your frontend engineering skills, and your ability to integrate an API with a form. Lift Design System documentation can be found at [http://d2vz07p3m3c4xg.cloudfront.net/](http://d2vz07p3m3c4xg.cloudfront.net/).
+Implementation of the Create Delivery Configuration form in the React starter, using `@atpco/atp-web@0.17.0`. Full change log: [changes.md](changes.md).
 
-Please access [this Figma mockup](https://www.figma.com/design/9tdkaFs4cMfI358ad5NriK/UXE-Technical-Assessment-Form?node-id=0-1&m=dev) of a modified version of an ATPCO application's Create Delivery Configuration form. There are mockups showing the form unfilled and with the form filled and the menus expanded. The Figma file password will be provided by your recruiter.
+## Run
 
-Most of the UI elements in the mockup have corresponding design system components. We provide both Angular and React starter applications. ATPCO primarily uses Angular, but if you feel you'll be able to do your best work in a React context, use the React Router based starter app. Please implement it in one of the starter apps at the route `http://localhost:4200/delivery-configuration/create`. Some of the basic page components (header, sidebar) have already been implemented for you.
+```sh
+npm install
+npm run dev:tech-assessment-react-mode
+```
 
-There is a basic API app that includes endpoints for GET and POST. Your implementation should: 1) Successfully POST data and display a success indicator of your choosing OR if an error occurs, an error indicator of your choosing. For testing convenience, adding `?error=true` to the POST will cause an error response. 2) On load the form page should utilize the GET request to log an array of the existing configs stored in the "backend" in the developer console. The configs in the array should be ordered by `acceptedAt` time from oldest -> most recent.
+Open <http://localhost:4200/delivery-configuration/create>.
 
-The finished application should build successfully with no errors. 
+## Build & test
 
-The expectation is that you will spend around 90 minutes on this assessment and will be prepared to discuss your work during your interviews.
+```sh
+npx nx build tech-assessment-react   # clean build
+npx nx test tech-assessment-react    # 1/1 passing
+```
 
-## Prerequisites:
+## What's implemented
 
-- `node v22.14.0` (recommended version, atp-web package has not been verified for usage with other versions)
+- **Route** at `/delivery-configuration/create` — [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx).
+- **Form** covering every field in [apps/tech-assessment-api/schema.md](apps/tech-assessment-api/schema.md), built entirely from Lift Design System web components (`atp-input`, `atp-dropdown`, `atp-checkbox`, `atp-card`, `atp-button`, `atp-alert`, `atp-header`, `atp-sidebar`, `atp-breadcrumbs`).
+- **Conditional sections** — the location-details card swaps between email and cloud fields based on the delivery-location dropdown; the combine-files card appears when that checkbox is on.
+- **Validation** — on-blur format checks for cron, file-safe names, and email (single or comma-separated). The design-system `isError` property handles the red border + help-text styling; required-field check runs at submit time via a shared callback ref.
+- **POST** with success/error feedback via a single shared `<atp-alert>` (toast appearance, color swapped on outcome, close button). Form resets on success.
+- **GET** on mount logs the existing configs array (sorted by `acceptedAt` ascending) to the devtools console.
+- **Forced-error mode** — load the route at `?error=true`; the POST is sent with the same query string and the server returns 500.
 
-## To get started:
+## Notable implementation details
 
-1. Install `node_modules` with `npm install`.
+- Wrapper components (`AtpDropdownField`, `AtpCheckbox`) isolate the Lit web-component interop (imperative property setters + `xxxEventOutput` events) so the form JSX reads as plain controlled-component React.
+- `custom-elements.d.ts` augments React 19's JSX namespace correctly (module augmentation, not the global pattern the starter shipped with — which silently did nothing on `@types/react` v19).
+- Payload preserves the schema's mixed casing — `last_file_suffix` and `upload_option` stay snake_case on the wire while local state stays camelCase.
 
-2. Run `npm run dev:tech-assessment-angular-mode` or `npm run dev:tech-assessment-react-mode` to run the client app and API locally.
+## Design call-outs
 
-3. Implement the Figma design and connect your form to the provided local API.
+| Decision | Reason |
+|---|---|
+| One shared `<atp-alert>` for success + error | Single mount point, single close listener, simpler state. |
+| Validate on blur, not on change | Blocking invalid intermediate values made controlled inputs un-typeable. |
+| `?error=true` read from `window.location.search` | Matches the assignment phrasing; no extra UI control needed. |
+| Comma-separated recipients | API field is plural (`recipients: string`); single-address restriction felt inconsistent with the schema. |
+| Accessibility delegated to design system | `isError` toggles `aria-invalid`, labels use slotted `<label>` — no custom ARIA layered on top. A real audit would still check keyboard order across conditional cards, `aria-live` on the alert, and contrast of `--atp-red-600`. |
 
-4. Run `npx nx build tech-assessment-angular` or `npx nx build tech-assessment-react` to build the client app.
+See [changes.md](changes.md) for the full list of assumptions and a per-change rationale.
 
-## Local API
+## Files of interest
 
-A local-only API is available at `apps/tech-assessment-api/server.mjs`.
+- [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx) — main route + wrappers + API helpers
+- [apps/tech-assessment-react/app/custom-elements.d.ts](apps/tech-assessment-react/app/custom-elements.d.ts) — JSX typings for `<atp-*>` elements
+- [apps/tech-assessment-react/app/app.module.css](apps/tech-assessment-react/app/app.module.css) — form layout
+- [changes.md](changes.md) — full change log
 
-API routes:
+---
+
+## Original assessment brief
+
+Lift Design System docs: <http://d2vz07p3m3c4xg.cloudfront.net/>. Recommended Node: `v22.14.0`.
+
+The local API at [apps/tech-assessment-api/server.mjs](apps/tech-assessment-api/server.mjs) exposes:
+
 - `GET /api/three-v-deliveries`
-- `POST /api/three-v-deliveries`
+- `POST /api/three-v-deliveries` (append `?error=true` to force a 500)
 
-The app dev server proxies `/api/*` to `http://localhost:3333` via `apps/tech-assessment-angular/proxy.conf.json` or in the react app, the vite.config.mts.
+Dev server proxies `/api/*` to `http://localhost:3333` via [apps/tech-assessment-react/vite.config.mts](apps/tech-assessment-react/vite.config.mts).
 
-Sample POST with a full payload matching `ThreeVDelivery`.
-Run the command from the workspace root folder:
+Sample POST:
 
 ```sh
 curl -X POST http://localhost:3333/api/three-v-deliveries \
@@ -45,16 +74,4 @@ curl -X POST http://localhost:3333/api/three-v-deliveries \
   --data @apps/tech-assessment-api/sample-payload.json
 ```
 
-For the basic payload schema, see `apps/tech-assessment-api/schema.md`.
-
-## Notes
-
-- Use the Lift Design System components to complete this task.
-
-- You are welcome to send questions to your recruiter about the project. These will be considered as part of your assessment, with quality questions and feedback considered a plus.
-
-- You may use AI to assist you, but be prepared to discuss all aspects of your solution in your technical interview. A lack of understanding of an AI built solution will be a significant negative.
-
-- The assessment has options for [Angular](https://angular.dev/overview), as that is what ATPCO primarily uses for client-side development. It also has a [React Router](https://reactrouter.com/start/framework/installation) (in Framework mode) option.
-
-- The UXE team uses [nvm](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating) to manage node versions and we recommend using it to install the recommended `node v22.14.0`
+Payload schema: [apps/tech-assessment-api/schema.md](apps/tech-assessment-api/schema.md).
