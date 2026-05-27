@@ -12,5 +12,5 @@ test('renders loader data', async () => {
 
   render(<ReactRouterStub />);
 
-  await waitFor(() => screen.findByText('Hello there,'));
+  await waitFor(() => screen.findByText('Welcome to the APTCO AI Starter for React!'));
 });

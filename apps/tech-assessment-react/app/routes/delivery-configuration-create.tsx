@@ -1,6 +1,7 @@
 import styles from './../app.module.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BreadcrumbItem, MenuListItem, SidebarItem } from '@atpco/atp-web';
+const API_BASE_URL = '/api/three-v-deliveries';
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { name: 'Collections', id: 'collections', route: 'collections', children: [] },
@@ -53,14 +54,14 @@ export default function DeliveryConfigurationCreateRoute() {
   const [deliveryFileName, setDeliveryFileName] = useState('');
 
   // email-only fields
-  const [recipient, setRecipient] = useState('');
+  const [recipients, setRecipients] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
 
   // cloud-only fields (gcloud / azure / s3)
-  const [bucket, setBucket] = useState('');
-  const [credentialsFile, setCredentialsFile] = useState('');
-  const [uploadOption, setUploadOption] = useState('');
+  const [bucket, setBucket] = useState<string>('');
+  const [credentialsFile, setCredentialsFile] = useState<string>('');
+  const [uploadOption, setUploadOption] = useState<string>('');
 
   // option toggles
   const [combineFiles, setCombineFiles] = useState(false);
@@ -69,7 +70,7 @@ export default function DeliveryConfigurationCreateRoute() {
   const [encrypt, setEncrypt] = useState(false);
 
   // combineFiles-only fields
-  const [maximumFileSize, setMaximumFileSize] = useState('');
+  const [maximumFileSize, setMaximumFileSize] = useState<string>('');
   const [compression, setCompression] = useState(false);
 
   const headerRef = useRef<HTMLElementTagNameMap['atp-header']>(null);
@@ -77,14 +78,15 @@ export default function DeliveryConfigurationCreateRoute() {
   const breadcrumbsRef = useRef<HTMLElementTagNameMap['atp-breadcrumbs']>(null);
   const submitButtonRef = useRef<HTMLElementTagNameMap['atp-button']>(null);
 
-  const requiredFields = [
-    deliveryName,
-    customer,
-    deliveryFileName,
-    deliveryLocation,
-    ...(deliveryLocation === 'email' ? [recipient] : [bucket, credentialsFile, uploadOption]),
-    ...(combineFiles ? [maximumFileSize] : []),
-  ];
+  const [isCronValid, setIsCronValid] = useState(true);
+  const [isLastFileSuffixValid, setIsLastFileSuffixValid] = useState(true);
+  const [isDeliveryFileNameValid, setIsDeliveryFileNameValid] = useState(true);
+  const [isRecipientsValid, setIsRecipientsValid] = useState(true);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [isServerError, setIsServerError] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [configData, setConfigData] = useState<ThreeVDeliveryListResponse | null>(null);
+
   // Callback ref: marks any atp-input as required on mount.
   const requiredInputRef = useCallback(
     (el: HTMLElementTagNameMap['atp-input'] | null) => {
@@ -104,6 +106,27 @@ export default function DeliveryConfigurationCreateRoute() {
     [],
   );
 
+  const alertRef = useCallback(
+  (el: HTMLElementTagNameMap['atp-alert'] | null) => {
+    if (!el) return;
+
+    //close button
+    const onClose = () => {
+      setIsServerError(false);
+      setServerError(null);
+      setIsSuccess(false);
+    };
+    el.addEventListener('closeEventOutput', onClose);
+
+    // Scroll into view when an alert is set
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // store cleanup on the element so we can call it on unmount
+    return () => el.removeEventListener('closeEventOutput', onClose);
+  },
+  [],
+);
+
   useEffect(() => {
     if (headerRef.current) {
       headerRef.current.label = 'PriceEye';
@@ -118,7 +141,22 @@ export default function DeliveryConfigurationCreateRoute() {
     if (breadcrumbsRef.current) {
       breadcrumbsRef.current.itemsList = BREADCRUMB_ITEMS;
     }
+
+    // GET existing data once on mount
+    fetchExistingData().then((data) => {
+      if(!data.success){
+        console.error('Failed to fetch existing data:', data.error);
+        return;
+      }
+      setConfigData(data.responseData);
+    });
   }, []);
+
+  useEffect(() => {
+    if(configData) {
+      console.log(configData.data);
+    }
+  }, [configData]);
 
   useEffect(() => {
     const sidebar = sidebarRef.current;
@@ -142,53 +180,105 @@ export default function DeliveryConfigurationCreateRoute() {
     };
   }, [activeSidebarId]);
 
+
+  const resetForm = useCallback(() => {
+    setDeliveryName('');
+    setCustomer('');
+    setDeliveryFrequency('');
+    setLastFileSuffix('');
+    setDeliveryLocation('s3');
+    setDeliveryFileName('');
+    setRecipients('');
+    setSubject('');
+    setBody('');
+    setBucket('');
+    setCredentialsFile('');
+    setUploadOption('');
+    setCombineFiles(false);
+    setSpecificDirectory(false);
+    setVirusScan(false);
+    setEncrypt(false);
+    setMaximumFileSize('');
+    setCompression(false);
+  }, []);
+
   const handleSubmit = useCallback(() => {
+    setIsCronValid(true);
+    setIsLastFileSuffixValid(true);
+    setIsDeliveryFileNameValid(true);
+    setIsRecipientsValid(true);
+    setIsServerError(false);
+    setServerError(null);
+    setIsSuccess(false);
+
     const payload = {
       deliveryName,
       customer,
       deliveryFrequency,
-      lastFileSuffix,
+      "last_file_suffix": lastFileSuffix,
       deliveryLocation,
       deliveryFileName,
       ...(deliveryLocation === 'email'
-        ? { recipients: recipient, subject, body }
-        : { bucket, credentialsFile, uploadOption }),
+        ? { recipients: recipients, subject, body }
+        : { bucket, credentialsFile, "upload_option": uploadOption }),
       combineFiles,
-      ...(combineFiles ? { maximumFileSize, compression } : {}),
+      ...(combineFiles ? { maximumFileSize: Number(maximumFileSize), compression } : {}),
       specificDirectory,
       virusScan,
       encrypt,
     };
 
+    const requiredFields = [
+    deliveryName,
+    customer,
+    deliveryFileName,
+    deliveryLocation,
+    ...(deliveryLocation === 'email' ? [recipients] : [bucket, credentialsFile, uploadOption]),
+    ...(combineFiles ? [maximumFileSize] : []),
+    ];
+
     // check for required fields
-    if (requiredFields.some((field) => field === '')) {
-      console.error('Please fill in all required fields before submitting.');
+    if (requiredFields.some((field) => field.trim() === '')) {
+      setIsServerError(true);
+      setServerError('Please fill in all required fields before submitting.');
       return;
     }
 
     if(!validateInput('cron', deliveryFrequency)) {
-      console.error('Invalid cron format. Please correct it before submitting.');
+      setIsCronValid(false);
       return;
     }
 
     // check for valid inputs
     if(!validateInput('file', lastFileSuffix)) {
-      console.error('Invalid last file suffix. Only letters, numbers, -, and _ are allowed.');
+      setIsLastFileSuffixValid(false);
       return;
     }
 
     if(!validateInput('file', deliveryFileName)) {
-      console.error('Invalid delivery file name. Only letters, numbers, -, and _ are allowed.');
+      setIsDeliveryFileNameValid(false);
       return;
     }
 
-    if(deliveryLocation === 'email' && !validateInput('email', recipient)) {
-      console.error('Invalid recipient email address. Please correct it before submitting.');
+    if(deliveryLocation === 'email' && !validateInput('email', recipients)) {
+      setIsRecipientsValid(false);
       return;
     }
 
-    // TODO: replace with POST to /api/three-v-deliveries
-    console.log('Submitting delivery configuration:', payload);
+    const forceError = typeof window !== 'undefined' && 
+      new URLSearchParams(window.location.search).get('error') === 'true';
+    postDeliveryConfiguration(payload, forceError).then((response) => {
+      if(!response.success){
+        console.error('Submission failed due to an error:', response.error);
+        setIsServerError(true);
+        setServerError(response.error || 'An unknown error occurred.');
+        return;
+      }
+
+      console.log('Submission successful');
+      setIsSuccess(true);
+      resetForm();
+  });
   }, [
     deliveryName,
     customer,
@@ -196,7 +286,7 @@ export default function DeliveryConfigurationCreateRoute() {
     lastFileSuffix,
     deliveryLocation,
     deliveryFileName,
-    recipient,
+    recipients,
     subject,
     body,
     bucket,
@@ -229,6 +319,19 @@ export default function DeliveryConfigurationCreateRoute() {
 
       <div className="scroll-wrapper">
         <div className="page-content">
+          {(isServerError || isSuccess) && 
+              <atp-alert
+                ref={alertRef}
+                label={
+                  isServerError
+                    ? (serverError ?? 'An unknown error occurred.')
+                    : 'Delivery configuration created successfully!'
+                }
+                appearance="toast"
+                color={isServerError ? "danger" : "info"}
+                hasClose
+              />
+          }
           <atp-breadcrumbs ref={breadcrumbsRef}></atp-breadcrumbs>
           <h1 className="view-title">Create delivery configuration</h1>
           <form
@@ -262,7 +365,7 @@ export default function DeliveryConfigurationCreateRoute() {
                 onChange={(event) => setCustomer(event.target.value)}
               />
             </atp-input>
-            <atp-input>
+            <atp-input isError={!isCronValid}>
               <label slot="label" htmlFor="delivery-frequency">
                 Delivery frequency in cron format
               </label>
@@ -273,26 +376,23 @@ export default function DeliveryConfigurationCreateRoute() {
                 value={deliveryFrequency}
                 onChange={(event) => setDeliveryFrequency(event.target.value)}
                 onBlur={(event) => {
+                  setIsCronValid(true);
                   const value = event.target.value;
                   if (value && !validateInput('cron', value)) {
-                    // to do - show error message to user
-                    console.error('Invalid cron format entered.');
+                    setIsCronValid(false);
                   }
                 }}
               />
               <span slot="help-text">
+                {!isCronValid && <span>Cron format is invalid.{' '}</span>}
                 For more information on cron format visit{' '}
-                <a
-                  href="https://crontab.cronhub.io"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <a href="https://crontab.cronhub.io" target="_blank" rel="noopener noreferrer">
                   crontab.cronhub.io
                 </a>
                 .
               </span>
             </atp-input>
-            <atp-input>
+            <atp-input isError={!isLastFileSuffixValid}>
               <label slot="label" htmlFor="last-file-suffix">
                 Last file suffix
               </label>
@@ -303,14 +403,18 @@ export default function DeliveryConfigurationCreateRoute() {
                 value={lastFileSuffix}
                 onChange={(event) => setLastFileSuffix(event.target.value)}
                 onBlur={(event) => {
+                  setIsLastFileSuffixValid(true);
                   const value = event.target.value;
                   if (value && !validateInput('file', value)) {
-                    // to do - show error message to user
-                    console.error('Invalid character entered. Only letters, numbers, -, and _ are allowed.');
+                    setIsLastFileSuffixValid(false);
                   }
                 }}
               />
-              <span slot="help-text">Input can only contain letters, numbers, -, and _</span>
+              <span slot="help-text">
+                {isLastFileSuffixValid
+                  ? 'Input can only contain letters, numbers, -, and _'
+                  : 'Invalid last file suffix entered. Only letters, numbers, -, and _ are allowed.'}
+              </span>
             </atp-input>
 
             <AtpDropdownField
@@ -322,30 +426,34 @@ export default function DeliveryConfigurationCreateRoute() {
               onChange={(id) => setDeliveryLocation(id as DeliveryLocationId | '')}
               required
             />
-
             {deliveryLocation !== '' && (
               <atp-card className={styles.deliveryLocationDetailsCard}>
                 <div className={styles.cardContent}>
                 {deliveryLocation === 'email' ? (
                   <>
-                    <atp-input ref={requiredInputRef}>
+                    <atp-input ref={requiredInputRef} isError={!isRecipientsValid}>
                       <label slot="label" htmlFor="recipient">
-                        Recipient email
+                        Recipient email(s)
                       </label>
                       <input
                         id="recipient"
-                        name="recipient"
+                        name="recipients"
                         type="text"
-                        value={recipient}
-                        onChange={(event) => setRecipient(event.target.value)}
+                        value={recipients}
+                        onChange={(event) => setRecipients(event.target.value)}
                         onBlur={(event) => {
+                          setIsRecipientsValid(true);
                           const value = event.target.value;
                           if (value && !validateInput('email', value)) {
-                            // to do - show error message to user
-                            console.error('Invalid email address entered.');
+                            setIsRecipientsValid(false);
                           }
                         }}
                       />
+                      <span slot="help-text">
+                        {isRecipientsValid
+                          ? 'Separate multiple addresses with commas.'
+                          : 'One or more email addresses are invalid. Separate multiple addresses with commas.'}
+                      </span>
                     </atp-input>
                     <atp-input ref={requiredInputRef}>
                       <label slot="label" htmlFor="subject">
@@ -414,7 +522,7 @@ export default function DeliveryConfigurationCreateRoute() {
                 </div>
               </atp-card>
             )}
-            <atp-input ref={requiredInputRef}>
+            <atp-input ref={requiredInputRef} isError={!isDeliveryFileNameValid}>
               <label slot="label" htmlFor="delivery-file-name">
                 Delivery File Name
               </label>
@@ -425,13 +533,16 @@ export default function DeliveryConfigurationCreateRoute() {
                 value={deliveryFileName}
                 onChange={(event) => setDeliveryFileName(event.target.value)}
                 onBlur={(event) => {
+                  setIsDeliveryFileNameValid(true);
                   const value = event.target.value;
                   if (value && !validateInput('file', value)) {
-                    // to do - show error message to user
-                    console.error('Invalid delivery file name entered.');
+                    setIsDeliveryFileNameValid(false);
                   }
                 }}
               />
+              {isDeliveryFileNameValid
+                  ? 'Input can only contain letters, numbers, -, and _'
+                  : 'Invalid last file suffix entered. Only letters, numbers, -, and _ are allowed.'}
             </atp-input>
 
             <AtpCheckbox
@@ -492,6 +603,55 @@ export default function DeliveryConfigurationCreateRoute() {
   );
 }
 
+type ThreeVDeliveryRecord = { id: number; acceptedAt: string; [k: string]: unknown };
+type ThreeVDeliveryListResponse = { count: number; data:ThreeVDeliveryRecord[] };
+
+async function fetchExistingData(): Promise<{success: boolean, responseData: ThreeVDeliveryListResponse | null, error?: string}> {
+  try{
+    const response = await fetch(API_BASE_URL);
+
+    if (!response.ok) {
+      throw new Error(`Error fetching data: ${response.statusText}`);
+    }
+
+    const json: ThreeVDeliveryListResponse = await response.json();
+    const sorted = json.data.sort(
+      (a, b) => new Date(a.acceptedAt).getTime() - new Date(b.acceptedAt).getTime()
+    );
+
+    return { success: true, responseData: { count: sorted.length, data: sorted } };
+  } catch (error) {
+    console.error('Error fetching existing delivery configurations:', error);
+    return { success: false, responseData: null, error: (error as Error).message };
+  }
+}
+
+async function postDeliveryConfiguration(payload: any, forceError: boolean): Promise<{success: boolean, error?: string}> {
+  try {
+    console.log(`Forcing error: ${forceError}`);
+    const response = await fetch(`${API_BASE_URL}${forceError ? '?error=true' : ''}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const responseData = await response.json();
+    if (!response.ok) {
+      const detail = responseData.errors?.join('; ') ?? responseData.message ?? response.statusText;
+      throw new Error(detail);
+    }
+
+    console.log('Delivery configuration submitted successfully:', responseData);
+    return { success: true };
+  } catch (error) {
+    let e = error as Error;
+    console.error('Error submitting delivery configuration:', e.stack);
+    return { success: false, error: e.message };
+  }
+}
+
 interface InputTypes {
   'email': string;
   'cron': string;
@@ -502,17 +662,31 @@ function validateInput(inputType: keyof InputTypes, value: string): boolean {
   let input = value.trim();
   switch (inputType) {
     case 'email':
-      // Basic email regex pattern
+      // Basic single-email regex pattern
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return emailPattern.test(input);
+      // Allow one or more comma-separated addresses; validate each individually.
+      const addresses = input.split(',').map((a) => a.trim()).filter((a) => a.length > 0);
+      const isValidEmail = addresses.length > 0 && addresses.every((a) => emailPattern.test(a));
+      if (!isValidEmail) {
+        console.error('Invalid email address(es):', input);
+      }
+      return isValidEmail;
     case 'cron':
       // Basic cron regex pattern (5 fields with numbers, *, /, -, and ,)
       const cronPattern = /^(\*|([0-5]?\d))(\/\d+)?(\s+(\*|([01]?\d|2[0-3]))(\/\d+)?){4}$/;
-      return cronPattern.test(input);
+      const isValidCron = cronPattern.test(input);
+      if (!isValidCron) {
+        console.error('Invalid cron expression:', input);
+      }
+      return isValidCron;
     case 'file':
       // Allow letters, numbers, dashes, and underscores; no spaces
       const filePattern = /^[a-zA-Z0-9_-]+$/;
-      return filePattern.test(input);
+      const isValidFile = filePattern.test(input);
+      if (!isValidFile) {
+        console.error('Invalid file name:', input);
+      }
+      return isValidFile;
     default:
       return false;
   }

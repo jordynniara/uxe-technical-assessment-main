@@ -162,3 +162,79 @@ Form-specific styles live in `app.module.css` per the assessment instructions. T
 
 Spacing throughout uses the `--atp-space-*` design tokens from [vendor/atp-web/atpco-atp-web-0.17.0.tgz](vendor/atp-web/atpco-atp-web-0.17.0.tgz) (`package/lib/styles/_variables-auto.css`), loaded automatically via the design system's `global.css`.
 
+### 11. API integration: GET on mount, POST on submit
+
+**File:** [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx)
+
+Two helper functions at the bottom of the file own all network I/O:
+
+- **`fetchExistingData()`** — `GET /api/three-v-deliveries` on mount. The response's `data` array is sorted in place by `acceptedAt` ascending (oldest → most recent) per the README requirement, then stored in `configData` state. A separate `useEffect` watches `configData` and `console.log`s the array so it shows up in the devtools as an expandable array literal.
+- **`postDeliveryConfiguration(payload, forceError)`** — `POST /api/three-v-deliveries`. When `forceError` is true, appends `?error=true` to the URL so the test endpoint returns a 500. On non-2xx responses, reads the server's actual error shape (`responseData.errors` array joined with `'; '`, falling back to `responseData.message`, then `response.statusText`) and throws — the caller receives `{success: false, error}` and the alert displays the real server detail rather than a generic message.
+
+Both helpers return a discriminated `{success, ...}` shape so the call sites read as simple branching on `.success` instead of try/catch.
+
+The `forceError` flag is derived inside `handleSubmit` from `window.location.search` — loading the page at `?error=true` (e.g. `/delivery-configuration/create?error=true`) is enough to flip every subsequent POST into the error path, with no UI toggle to add and no React state to thread through.
+
+### 12. Payload shape: matching the server's mixed casing
+
+**Files:** [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx), [apps/tech-assessment-api/schema.md](apps/tech-assessment-api/schema.md)
+
+The server validator at [apps/tech-assessment-api/server.mjs](apps/tech-assessment-api/server.mjs) (line 4) uses camelCase for almost every field but switches to snake_case for two:
+
+- `last_file_suffix` (optional, always)
+- `upload_option` (required when `deliveryLocation !== 'email'`)
+
+The payload object built in `handleSubmit` quotes those two keys to preserve the snake_case while everything else uses shorthand camelCase identifiers. `maximumFileSize` is wrapped in `Number(...)` because the underlying `<input type="number">` still produces a string in React; the server rejects it as a string. The email branch uses `recipients` (plural) per the schema, even though the local state variable is `recipient` (singular).
+
+### 13. Field-level validation with the design system's `isError` pattern
+
+**Files:** [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx), [apps/tech-assessment-react/app/custom-elements.d.ts](apps/tech-assessment-react/app/custom-elements.d.ts)
+
+The cron, last-file-suffix, delivery-file-name, and recipient-email fields each have a boolean validity flag in state (`isCronValid`, etc.) wired to the `isError` property on `<atp-input>`. Setting `isError={true}` triggers two design-system style rules inside the input's shadow DOM:
+
+- `.field-wrapper.error:not(.disabled) .input-wrapper { border-color: var(--atp-red-600); }`
+- `.field-wrapper.error:not(.disabled) .help-text { color: var(--atp-red-600); }`
+
+The slotted `<span slot="help-text">` lives in light DOM but inherits `color` through the flattened tree from the shadow-DOM `<slot class="help-text">`, so its text turns red automatically when the field is invalid — no custom CSS module class needed.
+
+To make TypeScript accept `isError` on the JSX element, [custom-elements.d.ts](apps/tech-assessment-react/app/custom-elements.d.ts) was extended with a per-tag prop interface (`{ isError?: boolean }`) layered on top of the existing `DetailedHTMLProps<...>` typing. The same pattern was used to add typings for `<atp-alert>` (`label`, `appearance`, `color`, `hasClose`), `<atp-checkbox>` (`label`, `name`, `value`), and `<atp-button>` (`label`).
+
+Validation runs `onBlur` (see section 9) — `handleSubmit` re-runs the same `validateInput` helper for each field before posting and short-circuits with the appropriate flag set if any check fails.
+
+### 14. Submission feedback: shared `<atp-alert>` for success and error
+
+**File:** [apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx](apps/tech-assessment-react/app/routes/delivery-configuration-create.tsx)
+
+A single `<atp-alert>` instance handles both outcomes:
+
+- `color="danger"` + the server error string when `isServerError` is true
+- `color="info"` + a generic success label when `isSuccess` is true
+- `appearance="toast"` so it floats above the form rather than displacing layout
+- `hasClose` to render the X button
+
+The Lift alert dispatches a `closeEventOutput` custom event when the user clicks X but does **not** unmount itself — the consumer must clear the state. That's wired through a `useCallback` callback ref (`alertRef`) which registers a single `closeEventOutput` listener that clears all three flags (`isServerError`, `serverError`, `isSuccess`) and returns a cleanup function so React removes the listener when the element unmounts.
+
+On successful POST, `handleSubmit` calls `resetForm()` — a `useCallback` that flips all 18 controlled-field setters back to their initial values — so the user can submit a second configuration without manually clearing every field.
+
+### 15. Test suite fix
+
+**File:** [apps/tech-assessment-react/tests/routes/_index.spec.tsx](apps/tech-assessment-react/tests/routes/_index.spec.tsx)
+
+The starter shipped a single vitest test that asserts the string `'Hello there,'` appears on the root route. That text doesn't exist anywhere in the starter's `welcome.tsx` (which renders `'Welcome to the APTCO AI Starter for React!'`), so the test fails on a clean clone — independent of any assessment work.
+
+Updated the assertion to match the actual rendered text. `npx nx test tech-assessment-react` now passes (1/1).
+
+## Build + test status
+
+- `npx nx build tech-assessment-react` — succeeds with no errors
+- `npx nx test tech-assessment-react` — 1/1 passing
+- TypeScript: no errors in the route file or any touched file
+
+## How to verify the assessment requirements
+
+1. **Route exists at `/delivery-configuration/create`** — load it in the browser; the form renders.
+2. **Lift components used throughout** — every input, button, checkbox, card, alert, header, sidebar, and breadcrumb is an `<atp-*>` element.
+3. **POST with success indicator** — fill in valid values, submit; a blue info `atp-alert` toast appears and the form resets.
+4. **POST with error indicator** — load the page at `/delivery-configuration/create?error=true` and submit valid data; a red danger toast appears with the server's `"Internal server error"` message.
+5. **GET on mount, sorted oldest → newest** — open devtools console on page load; the existing records array is logged (sorted by `acceptedAt` ascending).
+
